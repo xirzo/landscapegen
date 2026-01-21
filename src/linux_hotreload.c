@@ -5,14 +5,46 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <raylib.h>
+#include <sys/stat.h>
 
 static const char *rebuild_script_name = "./rebuild_plug.sh";
+static const char *lib_source_file = "./src/plug.c";
 static const char *lib_name = "./plug.so";
 
 static void* lib = NULL;
 
+int plug_poll_try_rebuild(Plug *plug) {
+    struct stat source_file_attr;
+
+    if (stat(lib_source_file, &source_file_attr) != 0) {
+        fprintf(stderr, "ERROR: Failed to get stat for source file\n");
+        return 1;
+    }
+
+    struct stat lib_file_attr;
+    if (stat(lib_name, &lib_file_attr) != 0) {
+        fprintf(stderr, "ERROR: Failed to get stat for lib file\n");
+        return 1;
+    }
+
+    if (source_file_attr.st_mtime <= lib_file_attr.st_mtime) {
+        return 0;
+    }
+
+    return plug_reload(plug);
+}
+
 int plug_rebuild() {
-    int code = system(rebuild_script_name);
+    char command[512];
+
+    int printf_ret = snprintf(command, sizeof(command), "echo \"%s\" | %s", lib_source_file, rebuild_script_name);
+
+    if (printf_ret < 0 || printf_ret >= sizeof(command)) {
+        fprintf(stderr, "ERROR: Command string too long\n");
+        return -1;
+    }
+
+    int code = system(command);
 
     if (code != 0) {
         fprintf(stderr, "ERROR: Failed to rebuild linux plug\n");

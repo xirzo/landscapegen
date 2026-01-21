@@ -3,6 +3,8 @@
 
 #include "plug.h"
 
+int plug_poll_try_rebuild(Plug *plug);
+
 int plug_load(Plug *plug);
 
 int plug_reload(Plug *plug);

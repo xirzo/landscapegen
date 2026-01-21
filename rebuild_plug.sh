@@ -1,12 +1,13 @@
 #!/usr/bin/bash
 
-source_files=("./src/plug.c")
 libraries=("raylib")
 lib_name="plug"
 
 red='\e[0;31m'
 green='\e[0;32m'
 no_color='\e[0m'
+
+read -p "Enter path to lib source file:" source_file
 
 echo
 if [[ -z ${CC} ]]; then
@@ -41,7 +42,7 @@ echo
 
 echo "Building sourcefiles..."
 
-$CC -shared -fPIC -o ${lib_name}.so ${source_files} ${link_libraries}
+$CC -shared -fPIC -o ${lib_name}.so ${source_file} ${link_libraries}
 
 if [[ $? -ne  0 ]]; then
     echo -e "${red}Build failed, error code: ${?}${no_color}"
