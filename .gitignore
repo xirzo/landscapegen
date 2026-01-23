@@ -1,6 +1,9 @@
 hotreload
+nob
+nob.old
 *.so
 *.o
 *.a
 *.dll
 *.swp
+build/**

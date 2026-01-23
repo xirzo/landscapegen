@@ -7,9 +7,9 @@
 #include <raylib.h>
 #include <sys/stat.h>
 
-static const char *rebuild_script_name = "./rebuild_plug.sh";
+static const char *rebuild_exe_name = "./nob";
 static const char *lib_source_file = "./src/plug.c";
-static const char *lib_name = "./plug.so";
+static const char *lib_name = "./build/plug.so";
 
 static void* lib = NULL;
 
@@ -34,16 +34,14 @@ int plug_poll_try_rebuild(Plug *plug) {
 }
 
 int plug_rebuild() {
-    char command[512];
-
-    int printf_ret = snprintf(command, sizeof(command), "echo \"%s\" | %s", lib_source_file, rebuild_script_name);
-
-    if (printf_ret < 0 || printf_ret >= sizeof(command)) {
-        fprintf(stderr, "ERROR: Command string too long\n");
-        return -1;
-    }
-
-    int code = system(command);
+//     char command[512];
+//     int printf_ret = snprintf(command, sizeof(command), "echo \"%s\" | %s", lib_source_file, rebuild_exe_name);
+// 
+//     if (printf_ret < 0 || printf_ret >= sizeof(command)) {
+//         fprintf(stderr, "ERROR: Command string too long\n");
+//         return -1;
+//     }
+    int code = system(rebuild_exe_name);
 
     if (code != 0) {
         fprintf(stderr, "ERROR: Failed to rebuild linux plug\n");
