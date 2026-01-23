@@ -15,7 +15,6 @@ static void* lib = NULL;
 
 int plug_poll_try_rebuild(Plug *plug) {
     struct stat source_file_attr;
-
     if (stat(lib_source_file, &source_file_attr) != 0) {
         fprintf(stderr, "ERROR: Failed to get stat for source file\n");
         return 1;
@@ -55,7 +54,7 @@ int plug_rebuild() {
 }
 
 int plug_load(Plug *plug) {
-    printf("Linux plug reloading...\n");
+    printf("Linux plug loading...\n");
 
     int rebuild_code;
     if ((rebuild_code = plug_rebuild()) != 0) {

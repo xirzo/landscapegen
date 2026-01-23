@@ -6,14 +6,9 @@
 #include "hotreload.h"
 
 int main(void) {
-    SetTraceLogLevel(LOG_ERROR);
-    InitWindow(900, 600, "Plugin");
-    SetTargetFPS(60);
-
     Plug plug = {0};
     if (plug_load(&plug) != 0) {
         fprintf(stderr, "ERROR: Failed to initially load the plug\n");
-        CloseWindow();
         return 1;
     }
 
@@ -21,7 +16,6 @@ int main(void) {
     if (!state) {
         fprintf(stderr, "ERROR: Failed to init the plug\n");
         plug.plug_deinit(state);
-        CloseWindow();
         return 1;
     }
 
@@ -36,7 +30,6 @@ int main(void) {
 
         if (IsKeyPressed(KEY_SPACE) && plug_reload(&plug) != 0) {
             fprintf(stderr, "ERROR: Failed to reload the plug\n");
-            CloseWindow();
             plug.plug_deinit(state);
             free(state);
             return 1;
@@ -46,6 +39,8 @@ int main(void) {
         plug.plug_draw(state);
     }
 
+    plug.plug_deinit(state);
+
     if (plug_unload(&plug) != 0) {
         fprintf(stderr, "ERROR: Failed to unload the plug\n");
         plug.plug_deinit(state);
@@ -54,6 +49,7 @@ int main(void) {
     }
 
     free(state);
-    CloseWindow();
     return 0;
 }
+
+// NOTE: maybe abstract out all of the raylib functions?
