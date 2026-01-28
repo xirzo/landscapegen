@@ -1,9 +1,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <raylib.h>
+#include <string.h>
 
 #include "plug.h"
 #include "hotreload.h"
+
+#define SCREEN_WIDTH  900
+#define SCREEN_HEIGHT 900
 
 int main(void) {
     Plug plug = {0};
@@ -18,6 +22,9 @@ int main(void) {
         plug.plug_deinit(state);
         return 1;
     }
+
+    memset((void*)state, SCREEN_WIDTH, sizeof(int));
+    memset((void*)state + sizeof(int), SCREEN_HEIGHT, sizeof(int));
 
     SetTraceLogLevel(LOG_ERROR);
     InitWindow(900, 900, "Plugin");
