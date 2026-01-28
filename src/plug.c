@@ -9,19 +9,23 @@
 #include <raylib.h>
 #include <stdlib.h>
 
-#define LTOP (Color){87, 73, 100, 255}
-#define LMID (Color){159, 131, 131, 255}
-#define LBOTMID (Color){200, 170, 170, 255}
-#define LBOT (Color){255, 218, 179, 255}
+#define SLOPE_FLAT (Color){105, 140, 115, 255}
+#define SLOPE_GENTLE (Color){93, 122, 101, 255}
+#define SLOPE_STEEP (Color){91, 94, 92, 255}
+#define SLOPE_VERY_STEEP (Color){70, 71, 70, 255}
+#define SLOPE_EXTREME (Color){48, 48, 48, 255}
 
-#define MAP_WIDTH 170
-#define MAP_HEIGHT 170
+#define MAP_WIDTH 250
+#define MAP_HEIGHT 250
 
-#define MAP_MESH_WIDTH 100
-#define MAP_MESH_HEIGHT 100
+#define MAP_MESH_WIDTH 300
+#define MAP_MESH_HEIGHT 300
 
-#define MAP_FIRST_PERLIN_SCALE 1.0f
-#define MAP_SECOND_PERLIN_SCALE 20.0f
+#define MAP_FIRST_PERLIN_SCALE 1.50f
+#define MAP_SECOND_PERLIN_SCALE 100.0f
+
+#define HEIGHT_MIN 0.0f
+#define HEIGHT_MAX 300.0f
 
 // TODO: add noise for randomization
 // TODO: add color-height gradient
@@ -35,41 +39,61 @@ typedef struct State {
   Camera camera;
   Color background;
   Model landscape;
+
+  Texture2D h1;
+  Texture2D h2;
 } State;
 
 size_t plug_state_size(void) {
   return sizeof(State);
 }
 
-Color calculate_color_by_height(float height) {
-    const float HEIGHT_MIN = 0.0f;
-    const float HEIGHT_MAX = 255.0f;
+float calculate_slope_at_point(Color *pixels, int x, int y, int width, int height) {
+    int left = (x > 0) ? (y * width + (x - 1)) : (y * width + x);
+    int right = (x < width - 1) ? (y * width + (x + 1)) : (y * width + x);
+    int top = (y > 0) ? ((y - 1) * width + x) : (y * width + x);
+    int bottom = (y < height - 1) ? ((y + 1) * width + x) : (y * width + x);
     
-    const float TRANSITION_BOTTOM = 100.0f;
-    const float TRANSITION_MID = 150.0f;
-    const float TRANSITION_TOP = 200.0f;
+    float h_center = pixels[y * width + x].r;
+    float h_left = pixels[left].r;
+    float h_right = pixels[right].r;
+    float h_top = pixels[top].r;
+    float h_bottom = pixels[bottom].r;
     
-    float normalized_height = (height - HEIGHT_MIN) / (HEIGHT_MAX - HEIGHT_MIN);
+    float dx = (h_right - h_left) / 2.0f;
+    float dy = (h_bottom - h_top) / 2.0f;
+    
+    return sqrtf(dx * dx + dy * dy);
+}
 
-    normalized_height = fmaxf(0.0f, fminf(1.0f, normalized_height));
+Color calculate_color_by_slope(float slope) {
+    const float GENTLE_SLOPE = 0.1f;
+    const float MODERATE_SLOPE = 0.25f;
+    const float STEEP_SLOPE = 0.5f;
+    const float VERY_STEEP_SLOPE = 0.75f;
     
-    if (height < TRANSITION_BOTTOM) {
-        return LBOT;
+    if (slope < GENTLE_SLOPE) {
+        return SLOPE_FLAT;
     }
-    else if (height < TRANSITION_MID) {
-        float t = (height - TRANSITION_BOTTOM) / (TRANSITION_MID - TRANSITION_BOTTOM);
-        return ColorLerp(LBOT, LBOTMID, t);
+    else if (slope < MODERATE_SLOPE) {
+        float t = (slope - GENTLE_SLOPE) / (MODERATE_SLOPE - GENTLE_SLOPE);
+        return ColorLerp(SLOPE_FLAT, SLOPE_GENTLE, t);
     }
-    else if (height < TRANSITION_TOP) {
-        float t = (height - TRANSITION_MID) / (TRANSITION_TOP - TRANSITION_MID);
-        return ColorLerp(LBOTMID, LMID, t);
+    else if (slope < STEEP_SLOPE) {
+        float t = (slope - MODERATE_SLOPE) / (STEEP_SLOPE - MODERATE_SLOPE);
+        return ColorLerp(SLOPE_GENTLE, SLOPE_STEEP, t);
+    }
+    else if (slope < VERY_STEEP_SLOPE) {
+        float t = (slope - STEEP_SLOPE) / (VERY_STEEP_SLOPE - STEEP_SLOPE);
+        return ColorLerp(SLOPE_STEEP, SLOPE_VERY_STEEP, t);
     }
     else {
-        float t = (height - TRANSITION_TOP) / (HEIGHT_MAX - TRANSITION_TOP);
-        t = fmaxf(0.0f, fminf(1.0f, t));
-        return ColorLerp(LMID, LTOP, t);
+        float t = (slope - VERY_STEEP_SLOPE) / (1.0f - VERY_STEEP_SLOPE);
+        t = fminf(t, 1.0f);
+        return ColorLerp(SLOPE_VERY_STEEP, SLOPE_EXTREME, t);
     }
 }
+
 void plug_init(void *state) { 
   State *s = (State*)state;
  
@@ -100,8 +124,6 @@ void plug_init(void *state) {
 	255
       };
 
-      ImageDrawPixel(&color, x, y, calculate_color_by_height(noise_value1 + noise_value2));
-      
       ImageDrawPixel(&heightmap, x, y, newColor);
     }
   }
@@ -109,11 +131,34 @@ void plug_init(void *state) {
   UnloadImageColors(pixels1);
   UnloadImageColors(pixels2);
 
+  s->h1 = LoadTextureFromImage(heightmap1);
+  s->h2 = LoadTextureFromImage(heightmap2);
+
   UnloadImage(heightmap1);
   UnloadImage(heightmap2);
 
   ImageBlurGaussian(&heightmap, 3);
-  
+
+  Color *pixels = LoadImageColors(heightmap);
+
+  float worldHeightPerColor = 20.0f / 255.0f;
+  float worldDistPerPixel = (float)MAP_MESH_WIDTH / MAP_WIDTH;
+  float slopeScaleFactor = worldHeightPerColor / worldDistPerPixel;
+
+  for (int y = 0; y < heightmap.height; y++) {
+    for (int x = 0; x < heightmap.width; x++) {
+      float raw_slope = calculate_slope_at_point(pixels, x, y, MAP_WIDTH, MAP_HEIGHT);
+      
+      float slope = raw_slope * slopeScaleFactor;
+      
+      Color slope_color = calculate_color_by_slope(slope);
+      
+      ImageDrawPixel(&color, x, y, slope_color);
+    }
+  }
+
+  UnloadImageColors(pixels);
+
   Mesh mesh = GenMeshHeightmap(heightmap, (Vector3){MAP_MESH_WIDTH, 20, MAP_MESH_HEIGHT});
   s->landscape = LoadModelFromMesh(mesh);
 
@@ -121,6 +166,7 @@ void plug_init(void *state) {
   UnloadImage(heightmap);
 
   Texture2D color_texture = LoadTextureFromImage(color);
+  SetTextureFilter(color_texture, TEXTURE_FILTER_BILINEAR);
   UnloadImage(color);
 
   s->landscape.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = color_texture;
@@ -144,6 +190,9 @@ void plug_draw(void *state) {
 
   EndMode3D();
 
+  DrawTexture(s->h1, 0, 0, WHITE);
+  DrawTexture(s->h2, s->h1.width, 0, WHITE);
+
   DrawFPS(10, 10);
   EndDrawing();
 }
@@ -152,4 +201,6 @@ void plug_deinit(void *state) {
   State *s = (State*)state;
 
   UnloadModel(s->landscape);
+  UnloadTexture(s->h1);
+  UnloadTexture(s->h2);
 }
