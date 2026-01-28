@@ -1,11 +1,14 @@
 #include "plug.h"
 
+#define FNL_IMPL
+#include "FastNoiseLite.h"
+
 #define RAYMATH_IMPLEMENTATION
+#include <raymath.h>
 
 #include <rlgl.h>
 #include <stdio.h>
 #include <math.h>
-#include <raymath.h>
 #include <raylib.h>
 #include <stdlib.h>
 
@@ -27,8 +30,9 @@
 #define HEIGHT_MIN 0.0f
 #define HEIGHT_MAX 300.0f
 
+
+// TODO: use fastnoicelite https://github.com/Auburn/FastNoiseLite/tree/master/C
 // TODO: add noise for randomization
-// TODO: add color-height gradient
 
 typedef struct State {
   // do not move width, height, camera, as they are set by memset in main  :)
