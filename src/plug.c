@@ -30,9 +30,7 @@
 #define HEIGHT_MIN 0.0f
 #define HEIGHT_MAX 300.0f
 
-
-// TODO: use fastnoicelite https://github.com/Auburn/FastNoiseLite/tree/master/C
-// TODO: add noise for randomization
+// TODO: add painted texture (like in PEAK for instance)
 
 typedef struct State {
   // do not move width, height, camera, as they are set by memset in main  :)
@@ -42,6 +40,7 @@ typedef struct State {
   int height;
   Camera camera;
   Color background;
+  Texture2D heightmap;
   Model landscape;
 
   Texture2D h1;
@@ -100,60 +99,50 @@ Color calculate_color_by_slope(float slope) {
 
 void plug_init(void *state) { 
   State *s = (State*)state;
- 
-  s->background = SKYBLUE;
 
-  Image heightmap1 = GenImagePerlinNoise(MAP_WIDTH, MAP_HEIGHT, 50, 50, MAP_FIRST_PERLIN_SCALE);
-  Image heightmap2 = GenImagePerlinNoise(MAP_WIDTH, MAP_HEIGHT, 100, 100, MAP_SECOND_PERLIN_SCALE);
+  fnl_state noise = fnlCreateState();
+  noise.noise_type = FNL_NOISE_OPENSIMPLEX2;
+  noise.fractal_type = FNL_FRACTAL_FBM;
+  noise.octaves = 5;
+  noise.lacunarity = 3.05f;
+  noise.weighted_strength = 2.06f;
 
-  Color *pixels1 = LoadImageColors(heightmap1);
-  Color *pixels2 = LoadImageColors(heightmap2);
+  Color *heightmap_pixels = malloc(MAP_WIDTH * MAP_HEIGHT * sizeof(Color));
 
-  Image heightmap = GenImageColor(MAP_WIDTH, MAP_HEIGHT, BLACK);
-  Image color = GenImageColor(MAP_WIDTH, MAP_HEIGHT, BLACK);
-
-  for (int y = 0; y < heightmap.height; y++) {
-    for (int x = 0; x < heightmap.width; x++) {
-      int index = (y * heightmap.width) + x;
-      
-      float noise_value1 = (float)pixels1[index].r;
-      float noise_value2 = (float)pixels2[index].r * 0.5f;
-
-      unsigned char combinedHeight = (unsigned char)fminf(255.0f, noise_value1 + noise_value2);
-
-      Color newColor = {
-	combinedHeight,
-	combinedHeight,
-	combinedHeight,
-	255
-      };
-
-      ImageDrawPixel(&heightmap, x, y, newColor);
+  size_t index = 0;
+  for (int y = 0; y < MAP_HEIGHT; y++) {
+    for (int x = 0; x < MAP_WIDTH; x++) {
+      float height = fnlGetNoise2D(&noise, x, y);
+      const int HEIGHT_INCREASE_CONSTANT = 350;
+      heightmap_pixels[index++] = (Color){ height * HEIGHT_INCREASE_CONSTANT, 0, 0, 255 };
     }
   }
 
-  UnloadImageColors(pixels1);
-  UnloadImageColors(pixels2);
+  Image heightmap = {
+    .data = heightmap_pixels,
+    .width = MAP_WIDTH,
+    .height = MAP_HEIGHT,
+    .format =  PIXELFORMAT_UNCOMPRESSED_R8G8B8A8,
+    .mipmaps = 1
+  };
+ 
+  ImageBlurGaussian(&heightmap, 2);
 
-  s->h1 = LoadTextureFromImage(heightmap1);
-  s->h2 = LoadTextureFromImage(heightmap2);
+  s->background = SKYBLUE;
 
-  UnloadImage(heightmap1);
-  UnloadImage(heightmap2);
-
-  ImageBlurGaussian(&heightmap, 1);
+  Image color = GenImageColor(MAP_WIDTH, MAP_HEIGHT, BLACK);
 
   Color *pixels = LoadImageColors(heightmap);
 
-  float worldHeightPerColor = 20.0f / 255.0f;
-  float worldDistPerPixel = (float)MAP_MESH_WIDTH / MAP_WIDTH;
-  float slopeScaleFactor = worldHeightPerColor / worldDistPerPixel;
+  float world_height_per_color = 20.0f / 255.0f;
+  float world_dist_per_pixel = (float)MAP_MESH_WIDTH / MAP_WIDTH;
+  float slope_scale_factor = world_height_per_color / world_dist_per_pixel;
 
   for (int y = 0; y < heightmap.height; y++) {
     for (int x = 0; x < heightmap.width; x++) {
       float raw_slope = calculate_slope_at_point(pixels, x, y, MAP_WIDTH, MAP_HEIGHT);
       
-      float slope = raw_slope * slopeScaleFactor;
+      float slope = raw_slope * slope_scale_factor;
       
       Color slope_color = calculate_color_by_slope(slope);
       
@@ -172,7 +161,7 @@ void plug_init(void *state) {
   Texture2D color_texture = LoadTextureFromImage(color);
   SetTextureFilter(color_texture, TEXTURE_FILTER_BILINEAR);
   UnloadImage(color);
-
+  s->heightmap = texture;
   s->landscape.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = color_texture;
 }
 
@@ -195,8 +184,7 @@ void plug_draw(void *state) {
   EndMode3D();
   // void DrawTextureEx(Texture2D texture, Vector2 position, float rotation, float scale, Color tint);
   float scale = 0.45f;
-  DrawTextureEx(s->h1, Vector2Zero(), 0, scale, WHITE);
-  DrawTextureEx(s->h2, (Vector2){s->h1.width * scale, 0}, 0, scale, WHITE);
+  DrawTextureEx(s->heightmap, Vector2Zero(), 0, scale, WHITE);
 
   DrawFPS(10, 10);
   EndDrawing();
