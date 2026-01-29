@@ -12,14 +12,14 @@
 #include <raylib.h>
 #include <stdlib.h>
 
-#define SLOPE_FLAT (Color){105, 140, 115, 255}
-#define SLOPE_GENTLE (Color){93, 122, 101, 255}
-#define SLOPE_STEEP (Color){91, 94, 92, 255}
-#define SLOPE_VERY_STEEP (Color){70, 71, 70, 255}
-#define SLOPE_EXTREME (Color){48, 48, 48, 255}
+#define SLOPE_FLAT (Color){93, 133, 19, 255}
+#define SLOPE_GENTLE (Color){65, 119, 0, 255}
+#define SLOPE_STEEP (Color){78, 124, 21, 255}
+#define SLOPE_VERY_STEEP (Color){129, 100, 31, 255}
+#define SLOPE_EXTREME (Color){114, 90, 35, 255}
 
-#define MAP_WIDTH 250
-#define MAP_HEIGHT 250
+#define MAP_WIDTH 512
+#define MAP_HEIGHT 512
 
 #define MAP_MESH_WIDTH 300
 #define MAP_MESH_HEIGHT 300
@@ -27,6 +27,7 @@
 #define MAP_FIRST_PERLIN_SCALE 2.50f
 #define MAP_SECOND_PERLIN_SCALE 10.0f
 
+#define HEIGHT_CONTRAST 50
 #define HEIGHT_MIN 0.0f
 #define HEIGHT_MAX 300.0f
 
@@ -42,9 +43,7 @@ typedef struct State {
   Color background;
   Texture2D heightmap;
   Model landscape;
-
-  Texture2D h1;
-  Texture2D h2;
+  bool show_textures;
 } State;
 
 size_t plug_state_size(void) {
@@ -100,6 +99,8 @@ Color calculate_color_by_slope(float slope) {
 void plug_init(void *state) { 
   State *s = (State*)state;
 
+  s->show_textures = true;
+
   fnl_state noise = fnlCreateState();
   noise.noise_type = FNL_NOISE_OPENSIMPLEX2;
   noise.fractal_type = FNL_FRACTAL_FBM;
@@ -113,8 +114,7 @@ void plug_init(void *state) {
   for (int y = 0; y < MAP_HEIGHT; y++) {
     for (int x = 0; x < MAP_WIDTH; x++) {
       float height = fnlGetNoise2D(&noise, x, y);
-      const int HEIGHT_INCREASE_CONSTANT = 350;
-      heightmap_pixels[index++] = (Color){ height * HEIGHT_INCREASE_CONSTANT, 0, 0, 255 };
+      heightmap_pixels[index++] = (Color){ height * HEIGHT_CONTRAST, 0, 0, 255 };
     }
   }
 
@@ -167,12 +167,18 @@ void plug_init(void *state) {
 
 void plug_update(void *state) {
   State *s = (State*)state;
+
+  if (IsKeyPressed(KEY_T)) {
+    s->show_textures = !s->show_textures;
+  }
+
   UpdateCamera(&s->camera, CAMERA_ORBITAL); 
   // UpdateCamera(&s->camera, CAMERA_FREE); 
 }
 
 void plug_draw(void *state) {
   State *s = (State*)state;
+
   BeginDrawing();
   ClearBackground(s->background);
 
@@ -183,8 +189,11 @@ void plug_draw(void *state) {
 
   EndMode3D();
   // void DrawTextureEx(Texture2D texture, Vector2 position, float rotation, float scale, Color tint);
-  float scale = 0.45f;
-  DrawTextureEx(s->heightmap, Vector2Zero(), 0, scale, WHITE);
+
+  if (s->show_textures) {
+    static float scale = 0.45f;
+    DrawTextureEx(s->heightmap, Vector2Zero(), 0, scale, WHITE);
+  }
 
   DrawFPS(10, 10);
   EndDrawing();
@@ -194,6 +203,4 @@ void plug_deinit(void *state) {
   State *s = (State*)state;
 
   UnloadModel(s->landscape);
-  UnloadTexture(s->h1);
-  UnloadTexture(s->h2);
 }
