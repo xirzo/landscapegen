@@ -27,7 +27,7 @@ int main(void) {
     memset((void*)state + sizeof(int), SCREEN_HEIGHT, sizeof(int));
 
     Camera camera = (Camera){ 0 };
-    camera.position = (Vector3){ 40.0f, 40.0f, 40.0f };
+    camera.position = (Vector3){ 240.0f, 160.0f, 80.0f };
     camera.target = (Vector3){ 0.0f, 0.0f, 0.0f };
     camera.up = (Vector3){ 0.0f, 1.0f, 0.0f };
     camera.fovy = 45.0f;
@@ -35,7 +35,7 @@ int main(void) {
 
     memcpy((void*)state + sizeof(int) * 2, &camera, sizeof(Camera));
 
-    SetConfigFlags(FLAG_MSAA_4X_HINT); 
+    SetConfigFlags(FLAG_MSAA_4X_HINT);
     SetTraceLogLevel(LOG_ERROR);
     InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Plugin");
     SetTargetFPS(60);

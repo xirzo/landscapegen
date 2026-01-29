@@ -24,8 +24,8 @@
 #define MAP_MESH_WIDTH 300
 #define MAP_MESH_HEIGHT 300
 
-#define MAP_FIRST_PERLIN_SCALE 1.50f
-#define MAP_SECOND_PERLIN_SCALE 100.0f
+#define MAP_FIRST_PERLIN_SCALE 2.50f
+#define MAP_SECOND_PERLIN_SCALE 10.0f
 
 #define HEIGHT_MIN 0.0f
 #define HEIGHT_MAX 300.0f
@@ -117,7 +117,7 @@ void plug_init(void *state) {
       int index = (y * heightmap.width) + x;
       
       float noise_value1 = (float)pixels1[index].r;
-      float noise_value2 = (float)pixels2[index].r;
+      float noise_value2 = (float)pixels2[index].r * 0.5f;
 
       unsigned char combinedHeight = (unsigned char)fminf(255.0f, noise_value1 + noise_value2);
 
@@ -141,7 +141,7 @@ void plug_init(void *state) {
   UnloadImage(heightmap1);
   UnloadImage(heightmap2);
 
-  ImageBlurGaussian(&heightmap, 3);
+  ImageBlurGaussian(&heightmap, 1);
 
   Color *pixels = LoadImageColors(heightmap);
 
@@ -193,9 +193,10 @@ void plug_draw(void *state) {
   DrawGrid(20, 10.0f);
 
   EndMode3D();
-
-  DrawTexture(s->h1, 0, 0, WHITE);
-  DrawTexture(s->h2, s->h1.width, 0, WHITE);
+  // void DrawTextureEx(Texture2D texture, Vector2 position, float rotation, float scale, Color tint);
+  float scale = 0.45f;
+  DrawTextureEx(s->h1, Vector2Zero(), 0, scale, WHITE);
+  DrawTextureEx(s->h2, (Vector2){s->h1.width * scale, 0}, 0, scale, WHITE);
 
   DrawFPS(10, 10);
   EndDrawing();
