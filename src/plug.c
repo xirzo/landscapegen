@@ -8,6 +8,7 @@
 
 #include <rlgl.h>
 #include <stdio.h>
+#include <limits.h>
 #include <math.h>
 #include <raylib.h>
 #include <stdlib.h>
@@ -15,9 +16,12 @@
 // NOTE: problem is that height is stored in 8 bits, so height is really clamped
 // so need to normalize and scale corre2tly
 
+#define MAX(X, Y) (((X)>(Y))?(X):(Y))
+#define MIN(X, Y) (((X)<(Y))?(X):(Y))
+
 #define SLOPE_FLAT (Color){93, 133, 19, 255}
 #define SLOPE_GENTLE (Color){65, 119, 0, 255}
-#define SLOPE_STEEP (Color){78, 124, 21, 255}
+#define SLOPE_STEEP (Color){114, 90, 35, 255}
 #define SLOPE_VERY_STEEP (Color){129, 100, 31, 255}
 #define SLOPE_EXTREME (Color){114, 90, 35, 255}
 #define SEA_COLOR BLUE
@@ -31,10 +35,13 @@
 
 #define SEA_OFFSET 10.0f
 // FALLOFF (0.f-1.f)
-#define FALLOFF_DENSITY 0.4f 
-#define FALLOFF_HEIGHT 10.f
+#define FALLOFF_DENSITY 0.1f 
+#define FALLOFF_HEIGHT 15.f
 
-#define NOISE_HEIGHT 120.f
+#define NOISE_HEIGHT 300.f
+
+static unsigned char max_height = 0;
+static unsigned char min_height = UCHAR_MAX;
 
 #define HEIGHT_MIN 0.0f
 #define HEIGHT_MAX 300.0f
@@ -112,9 +119,9 @@ void plug_init(void *state) {
   fnl_state noise = fnlCreateState();
   noise.noise_type = FNL_NOISE_OPENSIMPLEX2;
   noise.fractal_type = FNL_FRACTAL_FBM;
-  noise.octaves = 2;
-  noise.lacunarity = 3.05f;
-  noise.weighted_strength = 2.06f;
+  noise.octaves = 3;
+  noise.lacunarity = 2.05f;
+  noise.weighted_strength = 1.06f;
 
   Image falloff = GenImageGradientRadial(MAP_WIDTH, MAP_HEIGHT, FALLOFF_DENSITY, WHITE, BLACK);
   Color *falloff_pixels = LoadImageColors(falloff);
@@ -128,9 +135,14 @@ void plug_init(void *state) {
       float normalized_noise = (raw_noise + 1.0f) / 2.0f;
       float falloff_value = falloff_pixels[index].r / 255.0f;
       float height = NOISE_HEIGHT * normalized_noise * falloff_value + falloff_value * FALLOFF_HEIGHT - SEA_OFFSET;
-      heightmap_pixels[index++] = (unsigned char)fminf(fmaxf(height, 0.0f), 255.0f);
+
+      unsigned char h = (unsigned char)fminf(fmaxf(height, 0.0f), 255.0f); min_height = MIN(min_height, h);
+      max_height = MAX(max_height, h);
+      heightmap_pixels[index++] = h;
     }
   }
+
+  printf("%d, %d\n", min_height,  max_height);
 
   UnloadImageColors(falloff_pixels);
   UnloadImage(falloff);
@@ -145,7 +157,7 @@ void plug_init(void *state) {
  
   // ImageBlurGaussia(&heightmap, 2);
 
-  s->background = SKYBLUE;
+  s->background = BLUE;
 
   Image color = GenImageColor(MAP_WIDTH, MAP_HEIGHT, BLACK);
 
@@ -176,6 +188,7 @@ void plug_init(void *state) {
       ImageDrawPixel(&color, x, y, slope_color);
     }
   }
+
 
   UnloadImageColors(pixels);
 
@@ -221,7 +234,7 @@ void plug_draw(void *state) {
     DrawTextureEx(s->heightmap, Vector2Zero(), 0, scale, WHITE);
   }
 
-  DrawFPS(10, 10);
+  // DrawFPS(10, 10);
   EndDrawing();
 }
 

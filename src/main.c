@@ -6,8 +6,8 @@
 #include "plug.h"
 #include "hotreload.h"
 
-#define SCREEN_WIDTH  (int)(1920/(1.5f))
-#define SCREEN_HEIGHT (int)(1080/(1.5f))
+#define SCREEN_WIDTH  (int)(1920/(1))
+#define SCREEN_HEIGHT (int)(1080/(1))
 
 int main(void) {
     Plug plug = {0};
