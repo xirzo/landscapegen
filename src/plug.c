@@ -12,22 +12,30 @@
 #include <raylib.h>
 #include <stdlib.h>
 
+// NOTE: problem is that height is stored in 8 bits, so height is really clamped
+// so need to normalize and scale corre2tly
+
 #define SLOPE_FLAT (Color){93, 133, 19, 255}
 #define SLOPE_GENTLE (Color){65, 119, 0, 255}
 #define SLOPE_STEEP (Color){78, 124, 21, 255}
 #define SLOPE_VERY_STEEP (Color){129, 100, 31, 255}
 #define SLOPE_EXTREME (Color){114, 90, 35, 255}
+#define SEA_COLOR BLUE
+#define SAND_COLOR (Color){219, 215, 110, 255}
 
 #define MAP_WIDTH 512
 #define MAP_HEIGHT 512
 
-#define MAP_MESH_WIDTH 300
-#define MAP_MESH_HEIGHT 300
+#define MAP_MESH_WIDTH 512
+#define MAP_MESH_HEIGHT 512
 
-#define MAP_FIRST_PERLIN_SCALE 2.50f
-#define MAP_SECOND_PERLIN_SCALE 10.0f
+#define SEA_OFFSET 10.0f
+// FALLOFF (0.f-1.f)
+#define FALLOFF_DENSITY 0.4f 
+#define FALLOFF_HEIGHT 10.f
 
-#define HEIGHT_CONTRAST 50
+#define NOISE_HEIGHT 120.f
+
 #define HEIGHT_MIN 0.0f
 #define HEIGHT_MAX 300.0f
 
@@ -104,29 +112,38 @@ void plug_init(void *state) {
   fnl_state noise = fnlCreateState();
   noise.noise_type = FNL_NOISE_OPENSIMPLEX2;
   noise.fractal_type = FNL_FRACTAL_FBM;
-  noise.octaves = 5;
+  noise.octaves = 2;
   noise.lacunarity = 3.05f;
   noise.weighted_strength = 2.06f;
 
-  Color *heightmap_pixels = malloc(MAP_WIDTH * MAP_HEIGHT * sizeof(Color));
+  Image falloff = GenImageGradientRadial(MAP_WIDTH, MAP_HEIGHT, FALLOFF_DENSITY, WHITE, BLACK);
+  Color *falloff_pixels = LoadImageColors(falloff);
+
+  unsigned char *heightmap_pixels = malloc(MAP_WIDTH * MAP_HEIGHT * sizeof(unsigned char));
 
   size_t index = 0;
   for (int y = 0; y < MAP_HEIGHT; y++) {
     for (int x = 0; x < MAP_WIDTH; x++) {
-      float height = fnlGetNoise2D(&noise, x, y);
-      heightmap_pixels[index++] = (Color){ height * HEIGHT_CONTRAST, 0, 0, 255 };
+      float raw_noise = fnlGetNoise2D(&noise, x, y);
+      float normalized_noise = (raw_noise + 1.0f) / 2.0f;
+      float falloff_value = falloff_pixels[index].r / 255.0f;
+      float height = NOISE_HEIGHT * normalized_noise * falloff_value + falloff_value * FALLOFF_HEIGHT - SEA_OFFSET;
+      heightmap_pixels[index++] = (unsigned char)fminf(fmaxf(height, 0.0f), 255.0f);
     }
   }
+
+  UnloadImageColors(falloff_pixels);
+  UnloadImage(falloff);
 
   Image heightmap = {
     .data = heightmap_pixels,
     .width = MAP_WIDTH,
     .height = MAP_HEIGHT,
-    .format =  PIXELFORMAT_UNCOMPRESSED_R8G8B8A8,
+    .format =  PIXELFORMAT_UNCOMPRESSED_GRAYSCALE,
     .mipmaps = 1
   };
  
-  ImageBlurGaussian(&heightmap, 2);
+  // ImageBlurGaussia(&heightmap, 2);
 
   s->background = SKYBLUE;
 
@@ -138,14 +155,24 @@ void plug_init(void *state) {
   float world_dist_per_pixel = (float)MAP_MESH_WIDTH / MAP_WIDTH;
   float slope_scale_factor = world_height_per_color / world_dist_per_pixel;
 
+  index = 0;
   for (int y = 0; y < heightmap.height; y++) {
     for (int x = 0; x < heightmap.width; x++) {
+      index++;
       float raw_slope = calculate_slope_at_point(pixels, x, y, MAP_WIDTH, MAP_HEIGHT);
+
+      if (pixels[index].r == 0) {
+	ImageDrawPixel(&color, x, y, SEA_COLOR);
+	continue;
+      }
+
+      if (pixels[index].r < 10) {
+	ImageDrawPixel(&color, x, y, SAND_COLOR);
+	continue;
+      }
       
       float slope = raw_slope * slope_scale_factor;
-      
       Color slope_color = calculate_color_by_slope(slope);
-      
       ImageDrawPixel(&color, x, y, slope_color);
     }
   }
@@ -185,10 +212,9 @@ void plug_draw(void *state) {
   BeginMode3D(s->camera);
 
   DrawModel(s->landscape, (Vector3){-MAP_MESH_WIDTH/2, 0, -MAP_MESH_HEIGHT/2 }, 1.f, WHITE);
-  DrawGrid(20, 10.0f);
+  // DrawGrid(20, 10.0f);
 
   EndMode3D();
-  // void DrawTextureEx(Texture2D texture, Vector2 position, float rotation, float scale, Color tint);
 
   if (s->show_textures) {
     static float scale = 0.45f;
