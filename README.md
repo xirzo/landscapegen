@@ -1,5 +1,8 @@
 ## Build
 
+https://github.com/user-attachments/assets/8cf9adfe-e9a4-4961-9dcf-a5a5c5b25b39
+
+
 Compile *once* and then just rerun './nob' to recompile:
 
 ```sh
