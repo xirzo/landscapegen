@@ -6,8 +6,8 @@
 #include "plug.h"
 #include "hotreload.h"
 
-#define SCREEN_WIDTH  (int)(1920/(1))
-#define SCREEN_HEIGHT (int)(1080/(1))
+#define SCREEN_WIDTH  (int)(1920/(1.5f))
+#define SCREEN_HEIGHT (int)(1080/(1.5f))
 
 int main(void) {
     Plug plug = {0};
@@ -16,31 +16,32 @@ int main(void) {
         return 1;
     }
 
-    void *state = malloc(plug.plug_state_size());
-    if (!state) {
+    State *s = (State*)malloc(sizeof(State));
+    if (!s) {
         fprintf(stderr, "ERROR: Failed to init the plug\n");
-        plug.plug_deinit(state);
+        plug.plug_deinit(s);
         return 1;
     }
 
-    memset((void*)state, SCREEN_WIDTH, sizeof(int));
-    memset((void*)state + sizeof(int), SCREEN_HEIGHT, sizeof(int));
+    s->width = SCREEN_WIDTH;
+    s->height = SCREEN_HEIGHT;
 
-    Camera camera = (Camera){ 0 };
-    camera.position = (Vector3){ 240.0f, 160.0f, 80.0f };
-    camera.target = (Vector3){ 0.0f, 0.0f, 0.0f };
-    camera.up = (Vector3){ 0.0f, 1.0f, 0.0f };
-    camera.fovy = 45.0f;
-    camera.projection = CAMERA_PERSPECTIVE;
-
-    memcpy((void*)state + sizeof(int) * 2, &camera, sizeof(Camera));
+    s->camera = (Camera){ 0 };
+    s->camera.position = (Vector3){ 240.0f, 160.0f, 80.0f };
+    s->camera.target = (Vector3){ 0.0f, 0.0f, 0.0f };
+    s->camera.up = (Vector3){ 0.0f, 1.0f, 0.0f };
+    s->camera.fovy = 45.0f;
+    s->camera.projection = CAMERA_PERSPECTIVE;
 
     SetConfigFlags(FLAG_MSAA_4X_HINT);
     SetTraceLogLevel(LOG_ERROR);
     InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Plugin");
     SetTargetFPS(60);
 
-    plug.plug_init(state);
+    Shader shader = LoadShader("assets/vert.glsl", "assets/frag.glsl");
+    s->shader = shader;
+
+    plug.plug_init(s);
 
     while(!WindowShouldClose()) {
         if (IsKeyPressed(KEY_ESCAPE)) {
@@ -48,36 +49,39 @@ int main(void) {
         }
 
         if (IsKeyPressed(KEY_SPACE)) {
-	    int reload_plug_result = plug_reload(&plug);
+	    plug.plug_deinit(s);
 
-	    plug.plug_deinit(state);
+	    int reload_plug_result = plug_reload(&plug);
 
 	    if (reload_plug_result != 0) {
 		fprintf(stderr, "ERROR: Failed to reload the plug\n");
-		free(state);
+		free(s);
 		CloseWindow();
+		UnloadShader(shader);
 		return 1;
 	    }
 
-	    plug.plug_init(state);
+	    plug.plug_init(s);
 	}
 
-        plug.plug_update(state);
-        plug.plug_draw(state);
+        plug.plug_update(s);
+        plug.plug_draw(s);
     }
 
-    plug.plug_deinit(state);
+    plug.plug_deinit(s);
 
     if (plug_unload(&plug) != 0) {
         fprintf(stderr, "ERROR: Failed to unload the plug\n");
 	CloseWindow();
-        plug.plug_deinit(state);
-        free(state);
+        plug.plug_deinit(s);
+	UnloadShader(shader);
+        free(s);
         return 1;
     }
 
+    UnloadShader(shader);
     CloseWindow();
-    free(state);
+    free(s);
     return 0;
 }
 

@@ -13,6 +13,17 @@
 #include <raylib.h>
 #include <stdlib.h>
 
+// Reason for low max height
+
+//https://www.reddit.com/r/raylib/comments/1lr59z2/help_with_map_generation/
+
+// The explanation would be that since the bitmap consists of 255 values, it causes a quantization and results to height choppiness. (Similar to if you have smooth gradient in a high depth image but saving to a compressed file format with limited color palette causes gradient stepping). However, if you create a terrain as a model and load it directly it would not be a problem because the data consists of floating point values.
+// 
+// One simple quick fix, would be to smooth the positions of the vertices on the vertical axis. You have to interpolate each pixel of image, and then do interpolation two times for each axis.
+
+// Note the function GenMeshHeightmap() does not attempt any normal smoothing(ie, smooth shading in a modeling program) so if you add lighting it will always look wrong(though your example doesn't look lit). You can manually produce smoothed normals but you're probably better off just exporting a mesh with the materials you want and that already has smoothed normals, instead of generating the heightmap. Unless you actually need the terrain to be generated at runtime.
+
+
 // NOTE: problem is that height is stored in 8 bits, so height is really clamped
 // so need to normalize and scale corre2tly
 
@@ -47,24 +58,6 @@ static unsigned char min_height = UCHAR_MAX;
 #define HEIGHT_MAX 300.0f
 
 // TODO: add painted texture (like in PEAK for instance)
-
-typedef struct State {
-  // do not move width, height, camera, as they are set by memset in main  :)
-  // I just neither want it to be non-opaque struct nor create functionа
-  // to set values directly (may do that with xmacro)
-  int width;
-  int height;
-  Camera camera;
-  Color background;
-  Texture2D heightmap;
-  Model landscape;
-  bool show_textures;
-} State;
-
-size_t plug_state_size(void) {
-  return sizeof(State);
-}
-
 float calculate_slope_at_point(Color *pixels, int x, int y, int width, int height) {
     int left = (x > 0) ? (y * width + (x - 1)) : (y * width + x);
     int right = (x < width - 1) ? (y * width + (x + 1)) : (y * width + x);
@@ -142,7 +135,7 @@ void plug_init(void *state) {
     }
   }
 
-  printf("%d, %d\n", min_height,  max_height);
+  // printf("%d, %d\n", min_height,  max_height);
 
   UnloadImageColors(falloff_pixels);
   UnloadImage(falloff);
@@ -203,6 +196,7 @@ void plug_init(void *state) {
   UnloadImage(color);
   s->heightmap = texture;
   s->landscape.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = color_texture;
+  s->landscape.materials[0].shader = s->shader;
 }
 
 void plug_update(void *state) {
@@ -224,10 +218,15 @@ void plug_draw(void *state) {
 
   BeginMode3D(s->camera);
 
+  BeginShaderMode(s->shader);
+  DrawCube((Vector3){0,0,0}, 2.0f, 2.0f,  2.0f, RED);
   DrawModel(s->landscape, (Vector3){-MAP_MESH_WIDTH/2, 0, -MAP_MESH_HEIGHT/2 }, 1.f, WHITE);
+  EndShaderMode();
+
   // DrawGrid(20, 10.0f);
 
   EndMode3D();
+
 
   if (s->show_textures) {
     static float scale = 0.45f;

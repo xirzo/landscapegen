@@ -68,13 +68,6 @@ int plug_load(Plug *plug) {
         return 1;
     }
 
-    plug->plug_state_size = dlsym(lib, "plug_state_size");
-
-    if ((error = dlerror()) != NULL)  {
-        fprintf (stderr, "ERROR: Failed to load %s function: %s\n", "plug_state_size", error);
-        return 1;
-    }
-
     printf("Successfully loaded the plug\n");
     return 0;
 }
@@ -104,6 +97,11 @@ int plug_unload(Plug *plug) {
         fprintf(stderr, "ERROR: Failed to close plug: %s\n", dlerror());
         return dlclose_result;
     }
+
+    plug->plug_init = NULL;
+    plug->plug_update = NULL;
+    plug->plug_draw = NULL;
+    plug->plug_deinit = NULL;
     
     printf("Successfully unloaded the plug\n");
     return 0;
