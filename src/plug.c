@@ -57,6 +57,9 @@ static unsigned char min_height = UCHAR_MAX;
 #define HEIGHT_MIN 0.0f
 #define HEIGHT_MAX 300.0f
 
+static float seconds = 0;
+static int seconds_location;
+
 // TODO: add painted texture (like in PEAK for instance)
 float calculate_slope_at_point(Color *pixels, int x, int y, int width, int height) {
     int left = (x > 0) ? (y * width + (x - 1)) : (y * width + x);
@@ -106,6 +109,8 @@ Color calculate_color_by_slope(float slope) {
 
 void plug_init(void *state) { 
   State *s = (State*)state;
+
+  DisableCursor();
 
   s->show_textures = true;
 
@@ -197,6 +202,8 @@ void plug_init(void *state) {
   s->heightmap = texture;
   s->landscape.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = color_texture;
   s->landscape.materials[0].shader = s->shader;
+
+  seconds_location = GetShaderLocation(s->shader, "seconds");
 }
 
 void plug_update(void *state) {
@@ -206,8 +213,11 @@ void plug_update(void *state) {
     s->show_textures = !s->show_textures;
   }
 
-  UpdateCamera(&s->camera, CAMERA_ORBITAL); 
-  // UpdateCamera(&s->camera, CAMERA_FREE); 
+  seconds += GetFrameTime();
+  SetShaderValue(s->shader, seconds_location, &seconds, SHADER_UNIFORM_FLOAT);
+
+  // UpdateCamera(&s->camera, CAMERA_ORBITAL); 
+  UpdateCamera(&s->camera, CAMERA_FREE); 
 }
 
 void plug_draw(void *state) {
@@ -219,7 +229,7 @@ void plug_draw(void *state) {
   BeginMode3D(s->camera);
 
   BeginShaderMode(s->shader);
-  DrawCube((Vector3){0,0,0}, 2.0f, 2.0f,  2.0f, RED);
+  // DrawCube((Vector3){0,0,0}, 2.0f, 2.0f,  2.0f, RED);
   DrawModel(s->landscape, (Vector3){-MAP_MESH_WIDTH/2, 0, -MAP_MESH_HEIGHT/2 }, 1.f, WHITE);
   EndShaderMode();
 
